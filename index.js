@@ -1,6 +1,6 @@
 const express = require('express')
 const cors = require('cors')
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 4000;
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
@@ -37,6 +37,7 @@ async function run() {
 
     const database = client.db("parcel_Management");
     const userCollection = database.collection("users");
+    const bookingsCollection = database.collection("bookingsCollection");
 
     // vefifyToken
     const verifyToken = (req, res, next) => {
@@ -95,6 +96,17 @@ async function run() {
       res.send(result)
     })
 
+    app.get("/allAllDeliveryMen", async (req, res) => {
+      const filter = {role: 'Delivery_Men'}
+      const result = await userCollection.find(filter).toArray();
+      res.send(result)
+    })
+
+    app.get("/parcels", async (req, res) => {
+      const result = await bookingsCollection.find().toArray();
+      res.send(result)
+    })
+
 
     // remove token
     app.post("/jwt", (req, res) => {
@@ -117,6 +129,83 @@ async function run() {
       if(isExgisting) return res.status(401).send({message :"user already save in db"})
       const result = await userCollection.insertOne(user)
       res.send(result)
+    })
+
+
+    app.post("/bookings", async(req, res) => {
+      const data = req.body;
+      const result = await bookingsCollection.insertOne(data);
+      res.send(result)
+    })
+
+    app.get("/user/:email", async (req, res) => {
+      const email = req.params?.email;
+      const query = {email: email};
+      const result = await userCollection.findOne(query);
+      res.send(result)
+    })
+
+    app.get("/getSingleParcel/:id", async (req, res) => {
+      const id = req.params?.id;
+      console.log(id);
+      const query = {_id: new ObjectId(id)};
+      const result = await bookingsCollection.findOne(query);
+      res.send(result)
+    })
+
+    app.get("/myParcel/:email", async(req, res) => {
+      const email = req.params?.email
+      console.log("fiitrtt");
+      console.log(email);
+      const filter = {email: email}
+      const result = await bookingsCollection.find(filter).toArray()
+      res.send(result)
+    })
+
+
+    app.delete("/myParcel/:id", async(req, res) => {
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)}
+      const result = await bookingsCollection.deleteOne(filter);
+      res.send(result)
+    })
+
+
+    app.put("/booking/:id", async (req, res) => {
+      const id = req.params?.id;
+      const {delivaryMenId} = req.body
+      const filter = {_id: new ObjectId(id)}
+      const options = { upsert: true };
+      const result = await bookingsCollection.findOneAndUpdate(filter, {
+        $set: {
+          "status": "On The Way",
+          "delivaryMenId" : delivaryMenId
+        },
+      },options)
+      res.send(result)
+    })
+
+
+    app.put("/makeAdmin/:id", async(req, res) => {
+      const id = req.params?.id;
+      const filter = {_id: new ObjectId(id)}
+      const result = await userCollection.findOneAndUpdate(filter, {
+        $set: {
+          role: "admin"
+        }
+      })
+      return(result)
+    })
+
+    app.put("/makeDeliveryMan/:id", async(req, res) => {
+      const id = req.params?.id;
+      const filter = {_id: new ObjectId(id)}
+      const result = await userCollection.findOneAndUpdate(filter, {
+        $set: {
+          role: "Delivery_Men"
+        }
+      })
+      return(result)
     })
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
