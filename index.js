@@ -13,14 +13,14 @@ app.use(cookieParser())
 app.use(express.json())
 app.use(cors({
   credentials: true,
-  origin: ['http://127.0.0.1:5173', "http://localhost:5173"]
+  origin: ['http://127.0.0.1:5173', "https://wasteful-fruit.surge.sh", "http://localhost:5173"]
 }))
 
 app.get("/", (req, res) => {
     res.send("percel is running")
 })
 
-const uri = `mongodb+srv://${process.env.DB_USER_NAME}:${process.env.DB_USER_PASSWORD}@cluster0.sinogwr.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://Parcel_Management_ParcelPro:LgIChEXgYvRMzQid@cluster0.sinogwr.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -32,12 +32,13 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
+    // await client.connect();
+    // await client.db("admin").command({ ping: 1 });
 
     const database = client.db("parcel_Management");
     const userCollection = database.collection("users");
     const bookingsCollection = database.collection("bookingsCollection");
+    const reviewCollection = database.collection("reviewCollection");
 
     // vefifyToken
     const verifyToken = (req, res, next) => {
@@ -45,7 +46,7 @@ async function run() {
       if(!token) {
         return res.status(401).send({message: "unauthorized"})
       }
-      jwt.verify(token, process.env.JWTSECRET, function(err, decoded) {
+      jwt.verify(token, "9be97148a4f8f3842c17dcb4fefb1852a5ef708d529ebbcecfe4c8550eb568fbe75cca30502db05d85003c364c990e69b61adac9377a8b40bc39b9bdd1d8eb09", function(err, decoded) {
         if(err) {
           return res.status(403).send({message: "forbiden access"})
         }
@@ -82,18 +83,28 @@ async function run() {
     // create Token
     app.post('/jwt', (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWTSECRET, { expiresIn: '1h' });
+      const token = jwt.sign(user, "9be97148a4f8f3842c17dcb4fefb1852a5ef708d529ebbcecfe4c8550eb568fbe75cca30502db05d85003c364c990e69b61adac9377a8b40bc39b9bdd1d8eb09", { expiresIn: '1h' });
       res
       .cookie('token', token, {
+        httpOnly: true,
         secure: true,
-        httpOnly: false,
+        sameSite: "none"
       })
       .send({message: "success"})
     })
 
     app.get("/users", async (req, res) => {
-      const result = await userCollection.find().toArray();
+      const page = parseInt(req?.query?.page)
+      const size = parseInt(req?.query?.size)
+      const filter = {role: "user"}
+      const result = await userCollection.find(filter).skip(page*size).limit(size).toArray();
       res.send(result)
+    })
+
+
+    app.get("/userLength", async (req, res) => {
+      const result = await userCollection.estimatedDocumentCount()
+      res.send({result})
     })
 
     app.get("/allAllDeliveryMen", async (req, res) => {
@@ -110,7 +121,6 @@ async function run() {
 
     // remove token
     app.post("/jwt", (req, res) => {
-      console.log("fiittt");
       res.clearCookie('token', {maxAge: 0}).send({massage: "successssss"}) 
     })
 
@@ -126,9 +136,12 @@ async function run() {
       const user = req.body
       const filter = {email: user?.email}
       const isExgisting = await userCollection.findOne(filter)
-      if(isExgisting) return res.status(401).send({message :"user already save in db"})
-      const result = await userCollection.insertOne(user)
-      res.send(result)
+      if(isExgisting) {
+        return res.status(401).send({message :"user already save in db"})
+      }else{
+        const result = await userCollection.insertOne(user)
+        return res.send(result)
+      }
     })
 
 
@@ -147,7 +160,6 @@ async function run() {
 
     app.get("/getSingleParcel/:id", async (req, res) => {
       const id = req.params?.id;
-      console.log(id);
       const query = {_id: new ObjectId(id)};
       const result = await bookingsCollection.findOne(query);
       res.send(result)
@@ -155,8 +167,6 @@ async function run() {
 
     app.get("/myParcel/:email", async(req, res) => {
       const email = req.params?.email
-      console.log("fiitrtt");
-      console.log(email);
       const filter = {email: email}
       const result = await bookingsCollection.find(filter).toArray()
       res.send(result)
@@ -206,6 +216,80 @@ async function run() {
         }
       })
       return(result)
+    })
+
+    app.get("/getIdbyEmail/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = {email: email}
+      const user = await userCollection.findOne(filter) 
+      const userId = user._id
+      res.send({userId})
+    })
+
+
+    app.get("/myDelivery/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = {delivaryMenId: id};
+      const result = await bookingsCollection.find(filter).toArray()
+      res.send(result)
+    })
+
+    app.put("/updateParcelStatus/:id", async(req, res) => {
+      const id = req.params.id
+      const {status} = req.body
+      const filter = {delivaryMenId: id}
+      const result = await bookingsCollection.findOneAndUpdate(filter, {
+        $set: {
+          status: status,
+          delivaryMenId: " "
+        }
+      })
+      res.send(result)
+    })
+
+    app.put("/handleDeliverd/:id", async(req, res) => {
+      const id = req.params.id
+      const filter = {_id: new ObjectId(id)}
+      const result = await bookingsCollection.findOneAndUpdate(filter, {
+        $set: {
+          status: "deliverd",
+        }
+      })
+      res.send(result)
+    })
+
+
+    app.post("/review", async (req, res) => {
+      const data = req.body;
+      const result = await reviewCollection.insertOne(data)
+      res.send(result)
+    })
+
+    app.get("/myReviews/:email", async (req, res) => {
+      const email = req.params?.email;
+      const deviveryMan = await userCollection.findOne({email: email})
+      const ObjectId = deviveryMan._id
+      const justId = ObjectId.toString();
+      const filter = {deviveryManId: justId};
+      const result = await reviewCollection.find(filter).toArray();
+      res.send(result)
+    })
+
+    app.get("/allBookings", async (req, res) => {
+      const result = await bookingsCollection.find().toArray();
+      res.send(result)
+    })
+
+    app.put("/updateProfile/:email", async (req, res) => {
+      const email = req.params.email
+      const {image} = req.body 
+      const filter = {email: email};
+      const result = await userCollection.findOneAndUpdate(filter, {
+        $set: {
+          image: image
+        }
+      })
+      res.send(result)
     })
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
