@@ -103,7 +103,8 @@ async function run() {
 
 
     app.get("/userLength", async (req, res) => {
-      const result = await userCollection.estimatedDocumentCount()
+      const filter = {role: "user"}
+      const result = await userCollection.countDocuments(filter)
       res.send({result})
     })
 
@@ -183,13 +184,14 @@ async function run() {
 
     app.put("/booking/:id", async (req, res) => {
       const id = req.params?.id;
-      const {delivaryMenId} = req.body
+      const {delivaryMenId, DeliveryDate} = req.body
       const filter = {_id: new ObjectId(id)}
       const options = { upsert: true };
       const result = await bookingsCollection.findOneAndUpdate(filter, {
         $set: {
           "status": "On The Way",
-          "delivaryMenId" : delivaryMenId
+          "delivaryMenId" : delivaryMenId,
+          "DeliveryDate": DeliveryDate
         },
       },options)
       res.send(result)
@@ -234,10 +236,10 @@ async function run() {
       res.send(result)
     })
 
-    app.put("/updateParcelStatus/:id", async(req, res) => {
-      const id = req.params.id
+    app.put("/updateParcelStatus/:bookingId", async(req, res) => {
+      const bookingId = req.params.bookingId
       const {status} = req.body
-      const filter = {delivaryMenId: id}
+      const filter = {_id: new ObjectId(bookingId)}
       const result = await bookingsCollection.findOneAndUpdate(filter, {
         $set: {
           status: status,
@@ -247,20 +249,23 @@ async function run() {
       res.send(result)
     })
 
-    app.put("/handleDeliverd/:id", async(req, res) => {
-      const id = req.params.id
+    app.put("/handleDeliverd", async(req, res) => {
+      const {id, deliveryManId} = req.query
       const filter = {_id: new ObjectId(id)}
-      const result = await bookingsCollection.findOneAndUpdate(filter, {
+      const delivaryman = {_id: new ObjectId(deliveryManId)}
+      const options = { upsert: true };
+      const result1 = await bookingsCollection.findOneAndUpdate(filter, {
         $set: {
           status: "deliverd",
         }
-      })
-      res.send(result)
+      },)
+      const result2 = await userCollection.findOneAndUpdate(delivaryman, {$inc: {deliverdCount: 1, }}, options)
+      res.send({result1, result2})
     })
 
 
     app.post("/review", async (req, res) => {
-      const data = req.body;
+    const data = req.body;
       const result = await reviewCollection.insertOne(data)
       res.send(result)
     })
@@ -289,6 +294,41 @@ async function run() {
           image: image
         }
       })
+      res.send(result)
+    })
+
+    app.put("/updateParcel/:id", async (req, res) => {
+      const id = req.params?.id;
+      const data = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          phoneNumber: data.phoneNumber,
+          parcelYype: data.parcelYype,
+          parcelWeight: data.parcelWeight,
+          ReceiverName: data.ReceiverName,
+          ReceiverNumber: data.ReceiverNumber,
+          DeliveryAddress: data.DeliveryAddress,
+          RequestedDate: data.RequestedDate,
+          DeliveryAddressLatitude: data.DeliveryAddressLatitude,
+          DeliveryAddresslongitude: data.DeliveryAddresslongitude,
+        },
+      }
+      const result = await bookingsCollection.updateOne(filter, updateDoc);
+      res.send(result)
+    })
+
+    app.get("/count", async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount()
+      const filter = {status: "deliverd"}
+      const ParcelDelivered = await bookingsCollection.countDocuments(filter)
+      const ParcelBooked = await bookingsCollection.estimatedDocumentCount()
+      res.send({users, ParcelDelivered, ParcelBooked})
+    })
+
+    app.get("/topFiveFeliveryMan", async(req, res) => {
+      const filter = {role: "Delivery_Men"}
+      const result = await userCollection.find(filter).sort({ deliverdCount: -1 }).limit(5).toArray()
       res.send(result)
     })
 
