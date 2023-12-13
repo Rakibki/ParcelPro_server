@@ -39,6 +39,7 @@ async function run() {
     const userCollection = database.collection("users");
     const bookingsCollection = database.collection("bookingsCollection");
     const reviewCollection = database.collection("reviewCollection");
+    const messageCollection = database.collection("messageCollection");
 
     // vefifyToken
     const verifyToken = (req, res, next) => {
@@ -240,18 +241,35 @@ async function run() {
       const bookingId = req.params.bookingId
       const {status} = req.body
       const filter = {_id: new ObjectId(bookingId)}
+      const parcel = await bookingsCollection.findOne(filter)
       const result = await bookingsCollection.findOneAndUpdate(filter, {
         $set: {
           status: status,
           delivaryMenId: " "
         }
       })
+      const user = {
+        text: "Your parcel has been cancelled",
+        email: parcel?.email,
+        date: new Date().toLocaleDateString()
+      }
+      const result3 = await messageCollection.insertOne(user)
+      res.send({result, result3})
+    })
+
+
+    app.get("/mayMassage/:email", async(req, res) => {
+      const email = req.params?.email;
+      const filter = {email: email}
+      console.log(email);
+      const result = await messageCollection.find(filter).toArray();
       res.send(result)
     })
 
     app.put("/handleDeliverd", async(req, res) => {
       const {id, deliveryManId} = req.query
       const filter = {_id: new ObjectId(id)}
+      const parcel = await bookingsCollection.findOne(filter)
       const delivaryman = {_id: new ObjectId(deliveryManId)}
       const options = { upsert: true };
       const result1 = await bookingsCollection.findOneAndUpdate(filter, {
@@ -260,7 +278,13 @@ async function run() {
         }
       },)
       const result2 = await userCollection.findOneAndUpdate(delivaryman, {$inc: {deliverdCount: 1, }}, options)
-      res.send({result1, result2})
+      const user = {
+        text: "Your product has been delivered",
+        email: parcel?.email,
+        date: new Date().toLocaleDateString()
+      }
+      const result3 = await messageCollection.insertOne(user)
+      res.send({result1, result2, result3})
     })
 
 
