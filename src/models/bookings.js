@@ -59,10 +59,10 @@ const bookingScheme = new Schema({
   },
   DeliveryDate: {
     // required: true,
+    type: String,
   },
 });
 
+const booking = model("bookings", bookingScheme);
 
-const booking = model("bookingsCollection", bookingScheme)
-
-module.exports = booking
+module.exports = booking;

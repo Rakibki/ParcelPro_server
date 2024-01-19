@@ -7,6 +7,7 @@ const bookingsRoute = require("./router/bookings/index.js");
 const messageRoute = require("./router/message/index.js");
 const reviewRoute = require("./router/review/index.js");
 const usersRoute = require("./router/users/index.js");
+const servicesRoute = require("./router/services/index.js");
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(bookingsRoute);
 app.use(messageRoute);
 app.use(reviewRoute);
 app.use(usersRoute);
+app.use(servicesRoute);
 
 app.get("/", (req, res) => {
   res.send("percel is running");

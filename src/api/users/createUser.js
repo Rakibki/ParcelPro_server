@@ -8,7 +8,7 @@ const createUser = async (req, res) => {
   if (isExgisting) {
     return res.status(401).send({ message: "user already save in db" });
   } else {
-    const result = await users.insertOne(user);
+    const result = await users.create(user);
     return res.send(result);
   }
 };
