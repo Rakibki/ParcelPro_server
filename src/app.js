@@ -8,11 +8,11 @@ const messageRoute = require("./router/message/index.js");
 const reviewRoute = require("./router/review/index.js");
 const usersRoute = require("./router/users/index.js");
 const servicesRoute = require("./router/services/index.js");
+const teamRoute = require("./router/team/index.js");
 
 const app = express();
 
 applyMiddlewere(app);
-
 
 app.use(authenticationRoute);
 app.use(bookingsRoute);
@@ -20,6 +20,7 @@ app.use(messageRoute);
 app.use(reviewRoute);
 app.use(usersRoute);
 app.use(servicesRoute);
+app.use(teamRoute);
 
 app.get("/", (req, res) => {
   res.send("percel is running");
@@ -45,4 +46,3 @@ const main = async () => {
 };
 
 main();
-
